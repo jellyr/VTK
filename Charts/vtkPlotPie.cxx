@@ -225,7 +225,8 @@ vtkIdType vtkPlotPie::GetNearestPoint(const vtkVector2f& point,
 
     if (data)
       {
-      *values = static_cast<float>(*data->GetTuple(ret));
+      values->X() = static_cast<float>(data->GetTuple(ret)[0]);
+      values->Y() = static_cast<float>(data->GetTuple(ret)[1]);
       }
 
     return ret;
