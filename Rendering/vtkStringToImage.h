@@ -22,12 +22,12 @@
 #define __vtkStringToImage_h
 
 #include "vtkObject.h"
+#include "vtkVectorForwardDeclarations.h" // For vtkVector
 
 class vtkStdString;
 class vtkUnicodeString;
 class vtkTextProperty;
 class vtkImageData;
-class vtkVector2i;
 
 class VTK_RENDERING_EXPORT vtkStringToImage : public vtkObject
 {

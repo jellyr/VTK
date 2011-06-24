@@ -23,7 +23,7 @@
 
 #include "vtkChartLegend.h"
 #include "vtkSmartPointer.h" // For SP ivars
-#include "vtkVector.h"       // For vtkRectf
+#include "vtkRect.h"       // For vtkRectf
 
 class vtkAxis;
 class vtkImageData;

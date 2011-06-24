@@ -27,6 +27,7 @@
 #include "vtkContextItem.h"
 #include "vtkStdString.h" // Needed to hold TooltipLabelFormat ivar
 #include "vtkSmartPointer.h"  // Needed to hold SP ivars
+#include "vtkVectorForwardDeclarations.h" // For vtkVector
 
 class vtkVariant;
 class vtkTable;
@@ -35,7 +36,6 @@ class vtkContextMapper2D;
 class vtkPen;
 class vtkBrush;
 class vtkAxis;
-class vtkVector2f;
 class vtkRectf;
 class vtkStringArray;
 

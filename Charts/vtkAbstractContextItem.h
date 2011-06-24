@@ -25,12 +25,12 @@
 #define __vtkAbstractContextItem_h
 
 #include "vtkObject.h"
+#include "vtkVectorForwardDeclarations.h" // For vtkVector
 
 class vtkContext2D;
 class vtkContextMouseEvent;
 class vtkContextScene;
 class vtkContextScenePrivate;
-class vtkVector2f;
 
 class VTK_CHARTS_EXPORT vtkAbstractContextItem : public vtkObject
 {

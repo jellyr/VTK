@@ -195,6 +195,8 @@ vtkUnsignedShortArray.cxx
 vtkVariant.cxx
 vtkVariantArray.cxx
 vtkVector.h
+vtkVectorBase.h
+vtkVectorForwardDeclarations.h
 vtkVersion.cxx
 vtkVoidArray.cxx
 vtkWarpTransform.cxx
@@ -204,6 +206,8 @@ vtkWindowLevelLookupTable.cxx
 vtkXMLDataElement.cxx
 vtkXMLFileOutputWindow.cxx
 )
+
+
 
 # Generate data for folding Unicode strings
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/vtkUnicodeString.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/vtkUnicodeString.cmake @ONLY)
@@ -389,6 +393,9 @@ vtkRandomSequence
 vtkScalarsToColors
 vtkSocket
 vtkStructuredData
+vtkVector
+vtkVectorBase
+vtkVectorForwardDeclarations
 vtkWarpTransform
 vtkWindow
 ABSTRACT
@@ -398,6 +405,8 @@ SET_SOURCE_FILES_PROPERTIES(
   vtkColor
   vtkRect
   vtkVector
+  vtkVectorBase
+  vtkVectorForwardDeclarations
   HEADER_FILE_ONLY
 )
 
@@ -426,7 +435,6 @@ SET_SOURCE_FILES_PROPERTIES(
   vtkVariant.cxx
   vtkWeakPointerBase.cxx
   vtkUnicodeString.cxx
-  vtkVector.h
 
   WRAP_EXCLUDE
 )
@@ -436,7 +444,6 @@ SET_SOURCE_FILES_PROPERTIES(
   vtkRect.h
   vtkTimeStamp.cxx
   vtkVariant.cxx
-  vtkVector.h
 
   PROPERTIES WRAP_SPECIAL 1
 )

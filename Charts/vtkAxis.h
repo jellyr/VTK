@@ -25,7 +25,7 @@
 
 #include "vtkContextItem.h"
 #include "vtkSmartPointer.h" // For vtkSmartPointer
-#include "vtkVector.h"       // For position variables
+#include "vtkVectorForwardDeclarations.h" // For position variables
 #include "vtkRect.h"         // For bounding rect
 #include "vtkStdString.h"    // For vtkStdString ivars
 

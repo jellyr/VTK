@@ -25,6 +25,7 @@
 #define __vtkContext2D_h
 
 #include "vtkObject.h"
+#include "vtkVectorForwardDeclarations.h"
 
 class vtkWindow;
 
@@ -33,7 +34,6 @@ class vtkUnicodeString;
 class vtkTextProperty;
 
 class vtkPoints2D;
-class vtkVector2f;
 class vtkRectf;
 class vtkUnsignedCharArray;
 class vtkContextDevice2D;
