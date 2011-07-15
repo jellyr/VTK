@@ -34,6 +34,16 @@ IF (VTK_USE_RENDERING AND VTK_USE_CHEMISTRY)
         TestOpenQubeElectronicData.cxx
         TestOpenQubeMOPACDensity.cxx
         TestOpenQubeMOPACOrbital.cxx
+        TestElectronMapperClipAlongBond.cxx
+        TestElectronMapperDensityContourPlane.cxx
+        TestElectronMapperDensityCustomColors.cxx
+        TestElectronMapperDensityIsosurface.cxx
+        TestElectronMapperDensityVolume.cxx
+        TestElectronMapperOrbitalContourPlane.cxx
+        TestElectronMapperOrbitalCustomColors.cxx
+        TestElectronMapperOrbitalIsosurface.cxx
+        TestElectronMapperOrbitalVolume.cxx
+        TestElectronMapperOrbitalVolumeDz2.cxx
       )
     ENDIF(VTK_USE_OPENQUBE)
   ENDIF(VTK_DATA_ROOT)
