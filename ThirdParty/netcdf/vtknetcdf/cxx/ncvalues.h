@@ -13,7 +13,7 @@
 #include <iostream>
 #include <sstream>
 #include <limits.h>
-#include "netcdf.h"
+#include <vtknetcdf/include/netcdf.h>
 
 // Documentation warned this might change and now it has, for
 // consistency with C interface 
