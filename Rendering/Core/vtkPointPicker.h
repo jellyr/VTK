@@ -22,7 +22,7 @@
 // specified tolerance).  Ties are broken (i.e., multiple points all
 // projecting within the tolerance along the pick ray) by choosing the point
 // closest to the ray.
-//
+// 
 
 // .SECTION See Also
 // vtkPicker vtkCellPicker.
@@ -44,14 +44,22 @@ public:
   // Get the id of the picked point. If PointId = -1, nothing was picked.
   vtkGetMacro(PointId, vtkIdType);
 
+  // Description:
+  // Specify whether the point search should be based on cell points or
+  // directly on the point list.
+  vtkSetMacro(UseCells, int);
+  vtkGetMacro(UseCells, int);
+  vtkBooleanMacro(UseCells, int);
+
 protected:
   vtkPointPicker();
-  ~vtkPointPicker() {}
+  ~vtkPointPicker() {};
 
   vtkIdType PointId; //picked point
+  int UseCells;  // Use cell points vs. points directly
 
-  double IntersectWithLine(double p1[3], double p2[3], double tol,
-                          vtkAssemblyPath *path, vtkProp3D *p,
+  double IntersectWithLine(double p1[3], double p2[3], double tol, 
+                          vtkAssemblyPath *path, vtkProp3D *p, 
                           vtkAbstractMapper3D *m);
   void Initialize();
 
