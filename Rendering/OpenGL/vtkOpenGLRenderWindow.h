@@ -223,6 +223,7 @@ protected:
   // Description:
   // Flag telling if a framebuffer-based offscreen is currently in use.
   int OffScreenUseFrameBuffer;
+  bool OffScreenUseMultiSampledFrameBuffer;
 
   // Description:
   // Variables used by the framebuffer-based offscreen method.

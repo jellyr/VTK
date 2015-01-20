@@ -75,6 +75,7 @@ vtkOpenGLRenderWindow::vtkOpenGLRenderWindow()
   strcpy( this->WindowName, "Visualization Toolkit - OpenGL" );
 
   this->OffScreenUseFrameBuffer=0;
+  this->OffScreenUseMultiSampledFrameBuffer = false;
 
   this->BackLeftBuffer=static_cast<unsigned int>(GL_BACK_LEFT);
   this->BackRightBuffer=static_cast<unsigned int>(GL_BACK_RIGHT);
@@ -529,6 +530,108 @@ int vtkOpenGLRenderWindow::GetPixelData(int x1, int y1,
   while(glGetError() != GL_NO_ERROR)
     {
     ;
+    }
+
+  int width = this->Size[0];
+  int height = this->Size[1];
+
+  // TODO clean this up, move into new function?
+  if (this->OffScreenUseMultiSampledFrameBuffer)
+    {
+    // Up to 2: stereo
+    GLuint textureObjects[2];
+
+    GLuint resolvedBufferObject;
+    GLuint depthRenderBufferObject;
+    vtkgl::GenFramebuffersEXT(1, &resolvedBufferObject); // color
+    vtkgl::GenRenderbuffersEXT(1, &depthRenderBufferObject); // depth
+    int i=0;
+    while(i<this->NumberOfFrameBuffers)
+      {
+      textureObjects[i]=0;
+      ++i;
+      }
+    glGenTextures(this->NumberOfFrameBuffers,textureObjects);
+    // Color buffers
+    vtkgl::BindFramebufferEXT(vtkgl::FRAMEBUFFER_EXT,resolvedBufferObject);
+
+    // TODO need to detect NPOT support
+    GLenum target = GL_TEXTURE_2D;
+
+    i=0;
+    while(i<this->NumberOfFrameBuffers)
+      {
+      glBindTexture(target, textureObjects[i]);
+      glTexParameteri(target, GL_TEXTURE_WRAP_S, vtkgl::CLAMP_TO_EDGE);
+      glTexParameteri(target, GL_TEXTURE_WRAP_T, vtkgl::CLAMP_TO_EDGE);
+      glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage2D(target,0,GL_RGBA8,width,height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                   NULL );
+      vtkgl::FramebufferTexture2DEXT(vtkgl::FRAMEBUFFER_EXT,
+                                     vtkgl::COLOR_ATTACHMENT0_EXT+i,
+                                     target, textureObjects[i], 0);
+      ++i;
+      }
+
+    // Set up the depth (and stencil), render buffer
+    vtkgl::BindRenderbufferEXT(vtkgl::RENDERBUFFER_EXT,
+                               depthRenderBufferObject);
+
+    if(this->StencilCapable)
+      {
+      vtkgl::RenderbufferStorageEXT(vtkgl::RENDERBUFFER_EXT,
+                                    vtkgl::DEPTH24_STENCIL8_EXT,
+                                    width, height);
+      }
+    else
+      {
+      vtkgl::RenderbufferStorageEXT(vtkgl::RENDERBUFFER_EXT,
+                                    vtkgl::DEPTH_COMPONENT24,
+                                    width, height);
+      }
+    vtkgl::FramebufferRenderbufferEXT(vtkgl::FRAMEBUFFER_EXT,
+                                      vtkgl::DEPTH_ATTACHMENT_EXT,
+                                      vtkgl::RENDERBUFFER_EXT,
+                                      depthRenderBufferObject);
+    if(this->StencilCapable)
+      {
+      vtkgl::FramebufferRenderbufferEXT(vtkgl::FRAMEBUFFER_EXT,
+                                        vtkgl::STENCIL_ATTACHMENT_EXT,
+                                        vtkgl::RENDERBUFFER_EXT,
+                                        depthRenderBufferObject);
+      }
+
+    // Last check to see if the FBO is supported or not.
+    GLenum status=vtkgl::CheckFramebufferStatusEXT(vtkgl::FRAMEBUFFER_EXT);
+    std::cout << "Blitting FBO status: " << std::hex << status << std::dec << "\n";
+
+    vtkgl::BindFramebufferEXT(vtkgl::DRAW_FRAMEBUFFER, 0);
+    vtkgl::BindFramebufferEXT(vtkgl::READ_FRAMEBUFFER, 0);
+
+    vtkgl::BindFramebufferEXT(vtkgl::DRAW_FRAMEBUFFER, resolvedBufferObject);
+    glDrawBuffer(vtkgl::COLOR_ATTACHMENT0_EXT);
+
+    vtkgl::BindFramebufferEXT(vtkgl::READ_FRAMEBUFFER, this->FrameBufferObject);
+    glReadBuffer(vtkgl::COLOR_ATTACHMENT0_EXT);
+
+    vtkgl::BlitFramebufferEXT(0, 0, width, height, 0, 0, width, height,
+                              GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
+                              GL_NEAREST);
+
+    std::cout << "Blit complete.\n";
+
+    vtkgl::BindFramebufferEXT(vtkgl::FRAMEBUFFER_EXT, resolvedBufferObject);
+    glReadBuffer(vtkgl::COLOR_ATTACHMENT0_EXT);
+    glDisable( GL_TEXTURE_2D );
+    // Calling pack alignment ensures that we can grab the any size window
+    glPixelStorei( GL_PACK_ALIGNMENT, 1 );
+    glReadPixels(x_low, y_low, x_hi-x_low+1, y_hi-y_low+1, GL_RGB,
+                 GL_UNSIGNED_BYTE, data);
+    std::cout << "Read complete.\n";
+
+    vtkgl::BindFramebufferEXT(vtkgl::FRAMEBUFFER_EXT, this->FrameBufferObject);
+    return VTK_OK;
     }
 
   if (front)
@@ -1765,7 +1868,7 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
         }
       else
         {
-        vtkgl::TexImage2DMultisample(target, multi, GL_RGBA8, width, height,
+        vtkgl::TexImage2DMultisample(target, multi, GL_RGBA, width, height,
                                      GL_TRUE);
         }
       vtkgl::FramebufferTexture2DEXT(vtkgl::FRAMEBUFFER_EXT,
@@ -1914,6 +2017,8 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
           ++i;
           }
         this->OffScreenUseFrameBuffer=1;
+        this->OffScreenUseMultiSampledFrameBuffer =
+            (target == vtkgl::TEXTURE_2D_MULTISAMPLE);
         }
       }
     }
