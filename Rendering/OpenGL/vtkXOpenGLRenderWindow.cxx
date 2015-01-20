@@ -936,6 +936,15 @@ void vtkXOpenGLRenderWindow::CreateOffScreenWindow(int width, int height)
     }
 
   this->OpenGLInit();
+
+  int samples, sampleBuffers;
+  glGetIntegerv(GL_SAMPLES, &samples);
+  glGetIntegerv(GL_SAMPLE_BUFFERS, &sampleBuffers);
+  std::cout << "Offscreen window created:\n\t"
+            << "vtkRenderWindow::GetMultiSamples(): " << this->GetMultiSamples() << "\n\t"
+            << "GL_MULTISAMPLE: " << (glIsEnabled(GL_MULTISAMPLE) ? "On" : "Off") << "\n\t"
+            << "GL_SAMPLES: " << samples << "\n\t"
+            << "GL_SAMPLE_BUFFERS: " << sampleBuffers << "\n";
 }
 
 void vtkXOpenGLRenderWindow::DestroyOffScreenWindow()

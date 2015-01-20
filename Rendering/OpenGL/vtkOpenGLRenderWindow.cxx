@@ -1600,6 +1600,7 @@ void vtkOpenGLRenderWindow::RegisterTextureResource (GLuint id)
 //                     && (result implies OffScreenUseFrameBuffer)
 int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
 {
+  vtkOpenGLClearErrorMacro();
   assert("pre: positive_width" && width>0);
   assert("pre: positive_height" && height>0);
   assert("pre: not_initialized" && !this->OffScreenUseFrameBuffer);
@@ -1630,6 +1631,13 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
   int supports_texture_rectangle=
     extensions->ExtensionSupported("GL_ARB_texture_rectangle");
 
+  // Multisampling extensions:
+  int supports_multisample =
+      // Provides TEXTURE_2D_MULTISAMPLE and TexImage2DMultisample
+      extensions->ExtensionSupported("GL_ARB_texture_multisample") &&
+      // Provides RenderbufferStorageMultisamples
+      extensions->ExtensionSupported("GL_EXT_framebuffer_multisample");
+
   // The following extension does not exist on ATI. There will be no HW
   // Offscreen on ATI if a stencil buffer is required.
   int supports_packed_depth_stencil=
@@ -1637,9 +1645,28 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
 
   int result=0;
 
+  // Clamp the number of multisamples:
+  int multi;
+  glGetIntegerv(vtkgl::MAX_SAMPLES, &multi);
+  multi = std::min(multi, this->MultiSamples);
+  if (multi < this->MultiSamples)
+    {
+    vtkDebugMacro(<<"Reducing number of MSAA samples from "
+                  << this->MultiSamples << " to " << multi << " due to "
+                  << " GL implementation constraints.");
+    }
+
+  std::cout << "Req MS: " << this->MultiSamples << " "
+            << "MS Cap: " << multi << " ";
+
+  // TODO clean this up if it works:
+  multi = std::max(multi - 1, 0);
+  std::cout << "Adj MS: " << multi << "\n";
+
   if(!(supports_GL_EXT_framebuffer_object &&
        (supports_texture_non_power_of_two || supports_texture_rectangle) &&
-       !isMesa && (!this->StencilCapable || supports_packed_depth_stencil)))
+       !isMesa && (!this->StencilCapable || supports_packed_depth_stencil) &&
+       (multi == 0 || supports_multisample)))
     {
     if(!supports_GL_EXT_framebuffer_object)
       {
@@ -1666,11 +1693,19 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
       vtkDebugMacro(<<" a stencil buffer is required but extension "
         "GL_EXT_packed_depth_stencil is not supported");
       }
+    if (multi > 0 && !supports_multisample)
+      {
+      vtkDebugMacro(<< multi + 1 << "xMSAA requested, but one of the following "
+                    "extensions is missing: GL_ARB_texture_multisample, "
+                    "GL_EXT_framebuffer_multisample.");
+      }
     this->DestroyWindow();
     }
   else
     {
     extensions->LoadExtension("GL_EXT_framebuffer_object");
+    extensions->LoadExtension("GL_ARB_texture_multisample");
+    extensions->LoadExtension("GL_EXT_framebuffer_multisample");
 
     // 3. regular framebuffer code
     this->NumberOfFrameBuffers=1;
@@ -1701,7 +1736,14 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
     GLenum target;
     if(supports_texture_non_power_of_two)
       {
-      target=GL_TEXTURE_2D;
+      if (multi != 0)
+        {
+        target = vtkgl::TEXTURE_2D_MULTISAMPLE;
+        }
+      else
+        {
+        target=GL_TEXTURE_2D;
+        }
       }
     else
       {
@@ -1712,12 +1754,20 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
     while(i<this->NumberOfFrameBuffers)
       {
       glBindTexture(target,textureObjects[i]);
-      glTexParameteri(target, GL_TEXTURE_WRAP_S, vtkgl::CLAMP_TO_EDGE);
-      glTexParameteri(target, GL_TEXTURE_WRAP_T, vtkgl::CLAMP_TO_EDGE);
-      glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexImage2D(target,0,GL_RGBA8,width,height,
-                   0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+      if (target != vtkgl::TEXTURE_2D_MULTISAMPLE)
+        {
+        glTexParameteri(target, GL_TEXTURE_WRAP_S, vtkgl::CLAMP_TO_EDGE);
+        glTexParameteri(target, GL_TEXTURE_WRAP_T, vtkgl::CLAMP_TO_EDGE);
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(target,0,GL_RGBA8,width,height,
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+        }
+      else
+        {
+        vtkgl::TexImage2DMultisample(target, multi, GL_RGBA8, width, height,
+                                     GL_TRUE);
+        }
       vtkgl::FramebufferTexture2DEXT(vtkgl::FRAMEBUFFER_EXT,
                                      vtkgl::COLOR_ATTACHMENT0_EXT+i,
                                      target, textureObjects[i], 0);
@@ -1725,6 +1775,7 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
       }
     GLenum status;
     status=vtkgl::CheckFramebufferStatusEXT(vtkgl::FRAMEBUFFER_EXT);
+
     if(status==vtkgl::FRAMEBUFFER_UNSUPPORTED_EXT && target==GL_TEXTURE_2D &&
        supports_texture_rectangle)
       {
@@ -1773,13 +1824,35 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
                                  depthRenderBufferObject);
       if(this->StencilCapable)
         {
-        vtkgl::RenderbufferStorageEXT(vtkgl::RENDERBUFFER_EXT,
-                                      vtkgl::DEPTH_STENCIL_EXT, width,height);
+        if (target != vtkgl::TEXTURE_2D_MULTISAMPLE)
+          {
+          vtkgl::RenderbufferStorageEXT(vtkgl::RENDERBUFFER_EXT,
+                                        vtkgl::DEPTH24_STENCIL8_EXT,
+                                        width, height);
+          }
+        else
+          {
+          vtkgl::RenderbufferStorageMultisampleEXT(vtkgl::RENDERBUFFER_EXT,
+                                                   multi,
+                                                   vtkgl::DEPTH24_STENCIL8_EXT,
+                                                   width, height);
+          }
         }
       else
         {
-        vtkgl::RenderbufferStorageEXT(vtkgl::RENDERBUFFER_EXT,
-                                      vtkgl::DEPTH_COMPONENT24,width,height);
+        if (target != vtkgl::TEXTURE_2D_MULTISAMPLE)
+          {
+          vtkgl::RenderbufferStorageEXT(vtkgl::RENDERBUFFER_EXT,
+                                        vtkgl::DEPTH_COMPONENT24,
+                                        width, height);
+          }
+        else
+          {
+          vtkgl::RenderbufferStorageMultisampleEXT(vtkgl::RENDERBUFFER_EXT,
+                                                   multi,
+                                                   vtkgl::DEPTH_COMPONENT24,
+                                                   width, height);
+          }
         }
       vtkgl::FramebufferRenderbufferEXT(vtkgl::FRAMEBUFFER_EXT,
                                         vtkgl::DEPTH_ATTACHMENT_EXT,
@@ -1795,9 +1868,12 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
 
       // Last check to see if the FBO is supported or not.
       status=vtkgl::CheckFramebufferStatusEXT(vtkgl::FRAMEBUFFER_EXT);
+      std::cout << "FBO status: " << std::hex << status << std::dec << "\n";
+
       if(status!=vtkgl::FRAMEBUFFER_COMPLETE_EXT)
         {
-        vtkDebugMacro(<<"Hardware does not support GPU Offscreen rendering withthis depth/stencil configuration.");
+        vtkDebugMacro(<<"Hardware does not support GPU Offscreen rendering with"
+                      " this depth/stencil configuration.");
         glBindTexture(target,0);
         vtkgl::BindFramebufferEXT(vtkgl::FRAMEBUFFER_EXT,0);
         vtkgl::DeleteFramebuffersEXT(1,&frameBufferObject);
@@ -1842,9 +1918,12 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
       }
     }
 
+  vtkOpenGLCheckErrorMacro("failed after CreateHardwareOffscreenWindow");
+
   // A=>B = !A || B
   assert("post: valid_result" && (result==0 || result==1)
          && (!result || OffScreenUseFrameBuffer));
+  std::cout << "hardware offscreen? " << (result ? "Yes" : "No") << "\n";
   return result;
 }
 
