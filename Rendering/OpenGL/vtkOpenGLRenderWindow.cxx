@@ -604,7 +604,8 @@ int vtkOpenGLRenderWindow::GetPixelData(int x1, int y1,
 
     // Last check to see if the FBO is supported or not.
     GLenum status=vtkgl::CheckFramebufferStatusEXT(vtkgl::FRAMEBUFFER_EXT);
-    std::cout << "Blitting FBO status: " << std::hex << status << std::dec << "\n";
+    std::cout << "Blitting FBO status: " << std::hex << status << std::dec
+              << " dims = " << width << "x" << height << "\n";
 
     vtkgl::BindFramebufferEXT(vtkgl::DRAW_FRAMEBUFFER, 0);
     vtkgl::BindFramebufferEXT(vtkgl::READ_FRAMEBUFFER, 0);
@@ -615,6 +616,9 @@ int vtkOpenGLRenderWindow::GetPixelData(int x1, int y1,
     vtkgl::BindFramebufferEXT(vtkgl::READ_FRAMEBUFFER, this->FrameBufferObject);
     glReadBuffer(vtkgl::COLOR_ATTACHMENT0_EXT);
 
+    vtkOpenGLCheckErrorMacro("Preblit....");
+
+    std::cout << "Calling blit....\n";
     vtkgl::BlitFramebufferEXT(0, 0, width, height, 0, 0, width, height,
                               GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
                               GL_NEAREST);
@@ -2028,7 +2032,8 @@ int vtkOpenGLRenderWindow::CreateHardwareOffScreenWindow(int width, int height)
   // A=>B = !A || B
   assert("post: valid_result" && (result==0 || result==1)
          && (!result || OffScreenUseFrameBuffer));
-  std::cout << "hardware offscreen? " << (result ? "Yes" : "No") << "\n";
+  std::cout << "hardware offscreen? " << (result ? "Yes" : "No")
+            << " dims = " << width << "x" << height << "\n";
   return result;
 }
 
